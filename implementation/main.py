@@ -31,7 +31,7 @@ class Evaluater:
 
         for i, word in enumerate(word_list):
             for j, sentence in enumerate(words_from_sentences):
-                # binary (1) implementation
+                # binary (1) implementation (1 if exists, 0 if not)
                 matrix[i, j] = 1 if word in sentence else 0
 
     def svd(self, matrix):
