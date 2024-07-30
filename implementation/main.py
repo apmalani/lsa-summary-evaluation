@@ -4,18 +4,17 @@ import numpy as np
 import math
 
 class Evaluater:
-    def __init__(self, reference = None, summary = None):
-        nltk.download('punkt', quiet = True)
-        nltk.download('stopwords', quiet = True)
+    def __init__(self, reference, summary):
+        nltk.download('punkt')
+        nltk.download('stopwords')
         
         self._reference = reference
         self._summary = summary
 
-        if reference and summary:
-            self._rw = self.count_words(self._reference)
-            self._sw = self.count_words(self._summary)
+        self._rw = self.count_words(self._reference)
+        self._sw = self.count_words(self._summary)
 
-            self._dimensions = self.count_sentences(self._summary)
+        self._dimensions = self.count_sentences(self._summary)
 
     def extract_meaningful_words(self, corpus):
         stop_words = set(nltk.corpus.stopwords.words('english'))
@@ -41,15 +40,17 @@ class Evaluater:
                 # currently binary, can be changed to the other options (synonyms, threshold, actual value, extractive approach)
                 matrix[i, j] = 1 if word in sentence else 0
 
-        return matrix
-
     def svd(self, matrix):
         u, s, v = np.linalg.svd(matrix)
         return (u, s, v)
 
     def main_topic_similarity(self, reference_u_matrix, summary_u_matrix):
-        c = np.dot(reference_u_matrix[0], summary_u_matrix[0])
-        angle = math.acos(c)
+        sum = 0
+        for i in range(reference_u_matrix.shape[1]):
+            sum += np.dot(reference_u_matrix[:,i], summary_u_matrix[:,i])
+
+        angle = math.acos(sum)
+
         return angle
 
     def reduce_normalize_matrices(self, reference_u_matrix, summary_u_matrix, reference_s_matrix, summary_s_matrix):
