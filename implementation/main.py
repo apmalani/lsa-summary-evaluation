@@ -37,7 +37,7 @@ class Evaluater:
 
         for i, word in enumerate(word_list):
             for j, sentence in enumerate(words_from_sentences):
-                # binary (1) implementation (1 if exists, 0 if not)
+                # currently binary, can be changed to the other options (synonyms, threshold, actual value, extractive approach)
                 matrix[i, j] = 1 if word in sentence else 0
 
     def svd(self, matrix):
@@ -51,7 +51,6 @@ class Evaluater:
 
         angle = math.acos(sum)
 
-        # main topic similarity result
         return angle
 
     def reduce_normalize_matrices(self, reference_u_matrix, summary_u_matrix, reference_s_matrix, summary_s_matrix):
@@ -83,5 +82,32 @@ class Evaluater:
 
         return angle
 
-    def execute(self):
-        pass
+    def execute_main_topic(self):
+        r_meaningful_words = self.extract_meaningful_words(self._reference)
+        s_meaningful_words = self.extract_meaningful_words(self._summary)
+
+        r_matrix = self.create_matrix(self._reference, r_meaningful_words)
+        s_matrix = self.create_matrix(self._summary, s_meaningful_words)
+
+        r_svd = self.svd(r_matrix)
+        s_svd = self.svd(s_matrix)
+
+        angle = self.main_topic_similarity(r_svd[0], s_svd[0])
+
+        return 1 - (angle / math.pi)
+
+    def execute_term_sig(self):
+        r_meaningful_words = self.extract_meaningful_words(self._reference)
+        s_meaningful_words = self.extract_meaningful_words(self._summary)
+
+        r_matrix = self.create_matrix(self._reference, r_meaningful_words)
+        s_matrix = self.create_matrix(self._summary, s_meaningful_words)
+
+        r_svd = self.svd(r_matrix)
+        s_svd = self.svd(s_matrix)
+
+        l_reference, l_summary = self.reduce_normalize_matrices(r_svd[0], s_svd[0], r_svd[1], s_svd[1])
+
+        angle = self.term_significance_similarity(l_reference, l_summary)
+
+        return 1 - (angle / math.pi)
