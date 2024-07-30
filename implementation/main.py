@@ -85,10 +85,9 @@ class Evaluater:
 
     def execute_main_topic(self):
         r_meaningful_words = self.extract_meaningful_words(self._reference)
-        s_meaningful_words = self.extract_meaningful_words(self._summary)
 
         r_matrix = self.create_matrix(self._reference, r_meaningful_words)
-        s_matrix = self.create_matrix(self._summary, s_meaningful_words)
+        s_matrix = self.create_matrix(self._summary, r_meaningful_words)
 
         r_svd = self.svd(r_matrix)
         s_svd = self.svd(s_matrix)
