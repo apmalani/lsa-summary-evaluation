@@ -19,7 +19,7 @@ class Evaluater:
     def extract_meaningful_words(self, corpus):
         stop_words = set(nltk.corpus.stopwords.words('english'))
         words = nltk.tokenize.word_tokenize(corpus)
-        meaningful_words = [word for word in words if word.lower() not in stop_words and word not in string.punctuation]
+        meaningful_words = [word.lower() for word in words if word.lower() not in stop_words and word not in string.punctuation]
         return meaningful_words
 
     def count_sentences(self, corpus):
@@ -32,13 +32,15 @@ class Evaluater:
 
     def create_matrix(self, corpus, word_list):
         sentences = nltk.tokenize.sent_tokenize(corpus)
-        words_from_sentences = [nltk.tokenize.word_tokenize(sentence) for sentence in sentences]
+        words_from_sentences = [nltk.tokenize.word_tokenize(sentence.lower()) for sentence in sentences]
         matrix = np.zeros((len(word_list), len(sentences)), dtype = int)
 
         for i, word in enumerate(word_list):
             for j, sentence in enumerate(words_from_sentences):
                 # currently binary, can be changed to the other options (synonyms, threshold, actual value, extractive approach)
                 matrix[i, j] = 1 if word in sentence else 0
+
+        return matrix
 
     def svd(self, matrix):
         u, s, v = np.linalg.svd(matrix)
