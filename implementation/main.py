@@ -15,7 +15,7 @@ class Evaluater:
             self._rw = self.count_words(self._reference)
             self._sw = self.count_words(self._summary)
 
-            self._dimensions = self.count_sentences(self._summary)
+            self._dimensions = self.count_sentences(self._reference)
 
     def extract_meaningful_words(self, corpus):
         stop_words = set(nltk.corpus.stopwords.words('english'))
@@ -61,12 +61,17 @@ class Evaluater:
         reduced_u_reference = reference_u_matrix[:, :r]
         reduced_u_summary = summary_u_matrix[:, :r]
 
-        reduced_s_reference = reference_s_matrix[:r, :r]
-        reduced_s_summary = summary_s_matrix[:r, :r]
+        reduced_s_reference = np.square(reference_s_matrix[:r])
+        reduced_s_summary = np.square(summary_s_matrix[:r])
 
-        b_reference = np.multiply(reduced_u_reference, reduced_s_reference)
+        temp_reduced_s_summary = np.zeros(r)
+        for i in range(len(reduced_s_summary)):
+            temp_reduced_s_summary[i] =  reduced_s_summary[i]
+        
+        reduced_s_summary = temp_reduced_s_summary
 
-        b_summary = np.multiply(reduced_u_summary, reduced_s_summary)
+        b_reference = np.multiply(reduced_u_reference, np.transpose(reduced_s_reference))
+        b_summary = np.multiply(reduced_u_summary, np.transpose(reduced_s_summary))
 
         l_reference = np.linalg.norm(b_reference, axis = 1)
         l_summary = np.linalg.norm(b_summary, axis = 1)
@@ -81,6 +86,7 @@ class Evaluater:
 
         angle = math.acos(c)
 
+        print(angle)
         return angle
 
     def execute_main_topic(self):
@@ -98,10 +104,9 @@ class Evaluater:
 
     def execute_term_sig(self):
         r_meaningful_words = self.extract_meaningful_words(self._reference)
-        s_meaningful_words = self.extract_meaningful_words(self._summary)
 
         r_matrix = self.create_matrix(self._reference, r_meaningful_words)
-        s_matrix = self.create_matrix(self._summary, s_meaningful_words)
+        s_matrix = self.create_matrix(self._summary, r_meaningful_words)
 
         r_svd = self.svd(r_matrix)
         s_svd = self.svd(s_matrix)
