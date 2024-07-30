@@ -18,7 +18,7 @@ class Evaluater:
             self._dimensions = self.count_sentences(self._summary)
 
     def extract_meaningful_words(self, corpus):
-        stop_words = set(nltk.corpus.stopwords('english'))
+        stop_words = set(nltk.corpus.stopwords.words('english'))
         words = nltk.tokenize.word_tokenize(corpus)
         meaningful_words = [word for word in words if word.lower() not in stop_words and word not in string.punctuation]
         return meaningful_words
