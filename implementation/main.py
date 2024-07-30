@@ -4,17 +4,18 @@ import numpy as np
 import math
 
 class Evaluater:
-    def __init__(self, reference, summary):
+    def __init__(self, reference = None, summary = None):
         nltk.download('punkt')
         nltk.download('stopwords')
-        
-        self._reference = reference
-        self._summary = summary
 
-        self._rw = self.count_words(self._reference)
-        self._sw = self.count_words(self._summary)
+        if reference and summary:
+            self._reference = reference
+            self._summary = summary
 
-        self._dimensions = self.count_sentences(self._summary)
+            self._rw = self.count_words(self._reference)
+            self._sw = self.count_words(self._summary)
+
+            self._dimensions = self.count_sentences(self._summary)
 
     def extract_meaningful_words(self, corpus):
         stop_words = set(nltk.corpus.stopwords.words('english'))
@@ -47,11 +48,9 @@ class Evaluater:
         return (u, s, v)
 
     def main_topic_similarity(self, reference_u_matrix, summary_u_matrix):
-        sum = 0
-        for i in range(reference_u_matrix.shape[1]):
-            sum += np.dot(reference_u_matrix[:,i], summary_u_matrix[:,i])
+        c = np.dot(reference_u_matrix[0], summary_u_matrix[0])
 
-        angle = math.acos(sum)
+        angle = math.acos(c)
 
         return angle
 
