@@ -4,7 +4,6 @@ import unittest
 class extract_meaningful_words(unittest.TestCase):
     
     e = Evaluater()
-    example = "test test"
 
     def test_meaningful_words_test(self):
         

@@ -41,17 +41,15 @@ class Evaluater:
                 # currently binary, can be changed to the other options (synonyms, threshold, actual value, extractive approach)
                 matrix[i, j] = 1 if word in sentence else 0
 
+        return matrix
+
     def svd(self, matrix):
         u, s, v = np.linalg.svd(matrix)
         return (u, s, v)
 
     def main_topic_similarity(self, reference_u_matrix, summary_u_matrix):
-        sum = 0
-        for i in range(reference_u_matrix.shape[1]):
-            sum += np.dot(reference_u_matrix[:,i], summary_u_matrix[:,i])
-
-        angle = math.acos(sum)
-
+        c = np.dot(reference_u_matrix[0], summary_u_matrix[0])
+        angle = math.acos(c)
         return angle
 
     def reduce_normalize_matrices(self, reference_u_matrix, summary_u_matrix, reference_s_matrix, summary_s_matrix):
