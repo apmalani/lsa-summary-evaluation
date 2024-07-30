@@ -5,16 +5,17 @@ import math
 
 class Evaluater:
     def __init__(self, reference = None, summary = None):
-        nltk.download('punkt')
-        nltk.download('stopwords')
+        nltk.download('punkt', quiet = True)
+        nltk.download('stopwords', quiet = True)
         
         self._reference = reference
         self._summary = summary
 
-        self._rw = self.count_words(self._reference)
-        self._sw = self.count_words(self._summary)
+        if reference and summary:
+            self._rw = self.count_words(self._reference)
+            self._sw = self.count_words(self._summary)
 
-        self._dimensions = self.count_sentences(self._summary)
+            self._dimensions = self.count_sentences(self._summary)
 
     def extract_meaningful_words(self, corpus):
         stop_words = set(nltk.corpus.stopwords('english'))

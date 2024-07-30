@@ -6,7 +6,10 @@ class TestCountingMethods(unittest.TestCase):
     example = "Hello World. Arun was here. Testing 1 2 3."
 
     def test_counting_sentences(self):
-        pass
+        self.assertEqual(self.e.count_sentences(self.example), 3)
 
     def test_counting_words(self):
-        pass
+        self.assertEqual(self.e.count_words(self.example), 12)
+
+if __name__ == '__main__':
+    unittest.main()
