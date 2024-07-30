@@ -17,6 +17,15 @@ class Evaluater:
 
             self._dimensions = self.count_sentences(self._reference)
 
+    def set_ref_sum(self, reference, summary):
+        self._reference = reference
+        self._summary = summary
+
+        self._rw = self.count_words(self._reference)
+        self._sw = self.count_words(self._summary)
+
+        self._dimensions = self.count_sentences(self._reference)
+
     def extract_meaningful_words(self, corpus):
         stop_words = set(nltk.corpus.stopwords.words('english'))
         words = nltk.tokenize.word_tokenize(corpus)
@@ -89,7 +98,6 @@ class Evaluater:
 
         angle = math.acos(c)
 
-        print(angle)
         return angle
 
     def execute_main_topic(self):
