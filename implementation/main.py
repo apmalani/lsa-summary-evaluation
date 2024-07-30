@@ -2,11 +2,13 @@ import nltk
 import string
 import numpy as np
 import math
+import synonyms
 
 class Evaluater:
     def __init__(self, reference = None, summary = None):
         nltk.download('punkt', quiet = True)
         nltk.download('stopwords', quiet = True)
+        nltk.download('wordnet', quiet = True)
 
         if reference and summary:
             self._reference = reference
@@ -40,15 +42,21 @@ class Evaluater:
         words = nltk.tokenize.word_tokenize(corpus)
         return len(words)
 
-    def create_matrix(self, corpus, word_list):
+    def create_matrix(self, corpus, word_list, binary = True):
         sentences = nltk.tokenize.sent_tokenize(corpus)
         words_from_sentences = [nltk.tokenize.word_tokenize(sentence.lower()) for sentence in sentences]
         matrix = np.zeros((len(word_list), len(sentences)), dtype = int)
 
         for i, word in enumerate(word_list):
             for j, sentence in enumerate(words_from_sentences):
-                # currently binary, can be changed to the other options (synonyms, threshold, actual value, extractive approach)
-                matrix[i, j] = 1 if word in sentence else 0
+                if binary:
+                    # binary
+                    matrix[i, j] = 1 if word in sentence else 0
+                else:
+                    # synonyms
+                    for syn in synonyms.synonym_extractor(word):
+                        matrix[i, j] = 1 if syn in sentence else 0
+                        if matrix[i, j] == 1: break
 
         return matrix
 

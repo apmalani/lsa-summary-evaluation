@@ -3,10 +3,10 @@ import unittest
 import numpy as np
 
 class TestCreatingMatrices(unittest.TestCase):
-    examples = "This is a meaningful sentence with real words.\nIs not a real sentence.\nMeaningful words are awesome."
+    examples = "This is a meaningful sentence with literal words.\nIs not a real sentence.\nMeaningful words are awesome."
     
     e = main.Evaluater()
-    words = ['sentence', 'real', 'meaningful']
+    words = ['sentence', 'actual', 'meaningful']
 
     def test_creating_matrices(self):
         result = np.array([
@@ -15,7 +15,8 @@ class TestCreatingMatrices(unittest.TestCase):
             [1, 0, 1]
         ])
 
-        self.assertTrue(np.array_equal(self.e.create_matrix(self.examples, self.words), result))
+        self.assertTrue(np.array_equal(self.e.create_matrix(self.examples, self.words, binary = False), result))
+        self.assertFalse(np.array_equal(self.e.create_matrix(self.examples, self.words), result))
 
 if __name__ == '__main__':
     unittest.main()
