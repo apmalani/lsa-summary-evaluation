@@ -4,7 +4,7 @@ import numpy as np
 import math
 
 class Evaluater:
-    def __init__(self, reference, summary):
+    def __init__(self, reference = None, summary = None):
         nltk.download('punkt')
         nltk.download('stopwords')
         
