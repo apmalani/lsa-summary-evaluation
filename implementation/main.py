@@ -76,8 +76,11 @@ class Evaluater:
         l_reference = np.linalg.norm(b_reference, axis = 1)
         l_summary = np.linalg.norm(b_summary, axis = 1)
 
-        l_reference = l_reference / np.linalg.norm(l_reference)
-        l_summary = l_summary / np.linalg.norm(l_summary)
+        if np.all(l_summary == 0):
+            return ([0], [0])
+        else:
+            l_reference = l_reference / np.linalg.norm(l_reference)
+            l_summary = l_summary / np.linalg.norm(l_summary)
 
         return (l_reference, l_summary)
 
@@ -115,4 +118,4 @@ class Evaluater:
 
         angle = self.term_significance_similarity(l_reference, l_summary)
 
-        return 1 - (angle / math.pi)
+        return 1 - (angle / (math.pi / 2))
