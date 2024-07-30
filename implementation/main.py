@@ -5,8 +5,8 @@ import math
 
 class Evaluater:
     def __init__(self, reference = None, summary = None):
-        nltk.download('punkt')
-        nltk.download('stopwords')
+        nltk.download('punkt', quiet = True)
+        nltk.download('stopwords', quiet = True)
 
         if reference and summary:
             self._reference = reference
