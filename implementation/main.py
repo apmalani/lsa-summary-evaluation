@@ -2,7 +2,7 @@ import nltk
 import string
 import numpy as np
 import math
-import synonyms
+from implementation import synonyms
 
 class Evaluater:
     def __init__(self, reference = None, summary = None):
@@ -53,8 +53,11 @@ class Evaluater:
                     # binary
                     matrix[i, j] = 1 if word in sentence else 0
                 elif mode == "synonyms":
+                    syns = synonyms.synonym_extractor(word)
+                    if len(syns) == 0: 
+                        matrix[i, j] = 1 if word in sentence else 0
                     # synonyms
-                    for syn in synonyms.synonym_extractor(word):
+                    for syn in syns:
                         matrix[i, j] = 1 if syn in sentence else 0
                         if matrix[i, j] == 1: break
                 elif mode == "frequency":

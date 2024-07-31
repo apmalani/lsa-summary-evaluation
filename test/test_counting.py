@@ -1,4 +1,4 @@
-import main 
+from implementation import main
 import unittest
 
 class TestCountingMethods(unittest.TestCase):

@@ -1,9 +1,10 @@
-from main import * 
+from implementation import main 
+import math
 import unittest
 
 class test_topic_similarity(unittest.TestCase):
     
-    e = Evaluater("this is the first example", "this is the second example")
+    e = main.Evaluater("this is the first example", "this is the second example")
 
     def test_topic_similarity_test(self):
         

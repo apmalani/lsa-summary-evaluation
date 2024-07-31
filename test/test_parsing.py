@@ -1,9 +1,9 @@
-from main import * 
+from implementation import main
 import unittest
 
 class extract_meaningful_words(unittest.TestCase):
     
-    e = Evaluater()
+    e = main.Evaluater()
 
     def test_meaningful_words_test(self):
         
