@@ -9,7 +9,7 @@ class test_term_similarity(unittest.TestCase):
     )
 
     def test_term_similarity(self):
-        self.assertEqual(self.e.execute_term_sig(), 1.0)
+        self.assertEqual(self.e.execute_term_sig("frequency"), 1.0)
 
     def test_term_unsimilarity(self):
         self.e.set_ref_sum(reference = "Hello world. Arun was here. Testing 1 2 3. Goodbye world.", summary = "okay")

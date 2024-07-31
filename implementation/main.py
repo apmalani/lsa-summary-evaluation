@@ -42,21 +42,26 @@ class Evaluater:
         words = nltk.tokenize.word_tokenize(corpus)
         return len(words)
 
-    def create_matrix(self, corpus, word_list, binary = True):
+    def create_matrix(self, corpus, word_list, mode = "binary"):
         sentences = nltk.tokenize.sent_tokenize(corpus)
         words_from_sentences = [nltk.tokenize.word_tokenize(sentence.lower()) for sentence in sentences]
         matrix = np.zeros((len(word_list), len(sentences)), dtype = int)
 
         for i, word in enumerate(word_list):
             for j, sentence in enumerate(words_from_sentences):
-                if binary:
+                if mode == "binary":
                     # binary
                     matrix[i, j] = 1 if word in sentence else 0
-                else:
+                elif mode == "synonyms":
                     # synonyms
                     for syn in synonyms.synonym_extractor(word):
                         matrix[i, j] = 1 if syn in sentence else 0
                         if matrix[i, j] == 1: break
+                elif mode == "frequency":
+                    # frequency
+                    matrix[i, j] = sentence.count(word)
+                else:
+                    raise ValueError("mode not recognized")
 
         return matrix
 
@@ -108,11 +113,11 @@ class Evaluater:
 
         return angle
 
-    def execute_main_topic(self):
+    def execute_main_topic(self, mode = "binary"):
         r_meaningful_words = self.extract_meaningful_words(self._reference)
 
-        r_matrix = self.create_matrix(self._reference, r_meaningful_words)
-        s_matrix = self.create_matrix(self._summary, r_meaningful_words)
+        r_matrix = self.create_matrix(self._reference, r_meaningful_words, mode)
+        s_matrix = self.create_matrix(self._summary, r_meaningful_words, mode)
 
         r_svd = self.svd(r_matrix)
         s_svd = self.svd(s_matrix)
@@ -121,11 +126,11 @@ class Evaluater:
 
         return 1 - (angle / math.pi)
 
-    def execute_term_sig(self):
+    def execute_term_sig(self, mode = "binary"):
         r_meaningful_words = self.extract_meaningful_words(self._reference)
 
-        r_matrix = self.create_matrix(self._reference, r_meaningful_words)
-        s_matrix = self.create_matrix(self._summary, r_meaningful_words)
+        r_matrix = self.create_matrix(self._reference, r_meaningful_words, mode)
+        s_matrix = self.create_matrix(self._summary, r_meaningful_words, mode)
 
         r_svd = self.svd(r_matrix)
         s_svd = self.svd(s_matrix)
