@@ -2,7 +2,7 @@ import nltk
 import string
 import numpy as np
 import math
-from implementation import synonyms
+import synonyms
 
 class Evaluater:
     def __init__(self, reference = None, summary = None):
