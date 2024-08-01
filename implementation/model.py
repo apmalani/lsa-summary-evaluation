@@ -1,4 +1,4 @@
-from transformers import AutoTokenizer, T5ForConditionalGeneration, T5Config, get_scheduler
+from transformers import AutoTokenizer, mT5ForConditionalGeneration, mT5Config, get_scheduler, AutoModelForSeq2SeqLM
 from transformers.modeling_outputs import Seq2SeqLMOutput
 from datasets import load_dataset, load_from_disk
 from torch.utils.data import DataLoader
@@ -14,12 +14,12 @@ import nltk
 
 rouge_score = evaluate.load('rouge')
 
-model_checkpoint = "google/t5-v1_1-small"
+model_checkpoint = "google/mt5-small"
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 
 tokenized_datasets = load_from_disk('tokens')
 
-class CustomSeq2SeqModel(T5ForConditionalGeneration):
+class CustomSeq2SeqModel(mT5ForConditionalGeneration):
     def __init__(self, config):
         super().__init__(config)
         self.evaluater = main.Evaluater()
@@ -31,7 +31,6 @@ class CustomSeq2SeqModel(T5ForConditionalGeneration):
         return model
 
     def compute_lsa_loss(self, summaries, references):
-        print('loss called')
         scores = {'main topic': 0, 'term sig': 0}
         num_samples = len(summaries)
 
@@ -45,22 +44,59 @@ class CustomSeq2SeqModel(T5ForConditionalGeneration):
 
         lsa_loss = 1 - (scores['main topic'] + scores['term sig']) / 2
 
-        print('loss computed')
+        print(lsa_loss)
+
         return torch.tensor(lsa_loss, dtype = torch.float32, requires_grad = True)
     
-    def forward(self, input_ids = None, attention_mask = None, labels = None):
-        print("forward called!")
-        outputs = super().forward(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
-        print('gets here')
+    def forward(self,
+        input_ids=None,
+        attention_mask=None,
+        decoder_input_ids=None,
+        decoder_attention_mask=None,
+        head_mask=None,
+        decoder_head_mask=None,
+        cross_attn_head_mask=None,
+        encoder_outputs=None,
+        past_key_values=None,
+        inputs_embeds=None,
+        decoder_inputs_embeds=None,
+        labels=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        **kwargs
+    ):
+        outputs = super().forward(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            decoder_input_ids=decoder_input_ids,
+            decoder_attention_mask=decoder_attention_mask,
+            head_mask=head_mask,
+            decoder_head_mask=decoder_head_mask,
+            cross_attn_head_mask=cross_attn_head_mask,
+            encoder_outputs=encoder_outputs,
+            past_key_values=past_key_values,
+            inputs_embeds=inputs_embeds,
+            decoder_inputs_embeds=decoder_inputs_embeds,
+            labels=labels,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
         logits = outputs.logits
 
-        predictions = torch.argmax(logits, dim = -1)
-        print('predictions made:', predictions)
-        
+        predictions = torch.argmax(logits, dim = -1)        
         summaries = tokenizer.batch_decode(predictions, skip_special_tokens = True)
-        references = tokenizer.batch_decode(labels, skip_special_tokens = True)
+        print(summaries)
+        references = tokenizer.batch_decode(labels, skip_special_tokens = True) if labels is not None else None
+        print(references)
 
-        lsa_loss = self.compute_lsa_loss(summaries, references)
+        if labels is not None:
+            lsa_loss = self.compute_lsa_loss(summaries, references)
+        else:
+            lsa_loss = None
 
         return Seq2SeqLMOutput(
             loss=lsa_loss,
@@ -90,14 +126,14 @@ def collate_fn(features):
     return batch
 
 train_dataloader = DataLoader(
-    tokenized_datasets["test"],
+    tokenized_datasets["test"].select(range(10)),
     shuffle = True,
     collate_fn = collate_fn,
     batch_size = batch_size
 )
 
 eval_dataloader = DataLoader(
-    tokenized_datasets["validation"],
+    tokenized_datasets["validation"].select(range(2)),
     collate_fn = collate_fn,
     batch_size = batch_size
 )
@@ -109,7 +145,7 @@ model, optimizer, train_dataloader, eval_dataloader = accelerator.prepare(
     model, optimizer, train_dataloader, eval_dataloader
 )
 
-num_train_epochs = 10
+num_train_epochs = 8
 num_update_steps_per_epoch = len(train_dataloader)
 num_training_steps = num_train_epochs * num_update_steps_per_epoch
 
@@ -135,44 +171,44 @@ def postprocess_text(preds, labels):
 
     return preds, labels
 
+def save_model_contiguous(model, output_dir):
+    for param in model.parameters():
+        if not param.is_contiguous():
+            param.data = param.data.contiguous()
+    model.save_pretrained(output_dir)
+
 for epoch in range(num_train_epochs):
     model.train()
 
-    print("Beg. of Epic ", epoch)
-
     for step, batch in enumerate(train_dataloader):
-        print("reaches here")
         outputs = model(**batch)
-        print("1")
         loss = outputs.loss
-        print("2")
         accelerator.backward(loss)
-        print("3")
 
         optimizer.step()
         lr_scheduler.step()
         optimizer.zero_grad()
         progress_bar.update(1)
-        print("also here")
     
     model.eval()
 
-    print('reached eval')
-
     for step, batch in enumerate(eval_dataloader):
+        print(batch)
         with torch.no_grad():
             generated_tokens = accelerator.unwrap_model(model).generate(
                 batch["input_ids"],
-                attention_mask = batch["attention_mask"]
+                attention_mask = batch["attention_mask"],
+                max_new_tokens = 300
             )
 
             generated_tokens = accelerator.pad_across_processes(
                 generated_tokens, dim = 1, pad_index = tokenizer.pad_token_id
             )
-            labels = batch["id"]
+
+            labels = batch["old_summaries"]
 
             labels = accelerator.pad_across_processes(
-                batch["id"], dim = 1, pad_index = tokenizer.pad_token_id
+                batch["old_summaries"], dim = 1, pad_index = tokenizer.pad_token_id
             )
 
             generated_tokens = accelerator.gather(generated_tokens).cpu().numpy()
@@ -186,8 +222,6 @@ for epoch in range(num_train_epochs):
             )
             decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens = True)
 
-            reference_texts = batch["article"]
-
             decoded_preds, decoded_labels = postprocess_text(
                 decoded_preds, decoded_labels
             )
@@ -195,13 +229,13 @@ for epoch in range(num_train_epochs):
             rouge_score.add_batch(predictions = decoded_preds, references = decoded_labels)
 
     result = rouge_score.compute()
-    result = {key: value.mid.fmeasure * 100 for key, value in result.items()}
+    # result = {key: value.mid.fmeasure * 100 for key, value in result.items()}
     result = {k: round(v, 4) for k, v in result.items()}
     print(f"Epoch {epoch}:", result)
 
     accelerator.wait_for_everyone()
     unwrapped_model = accelerator.unwrap_model(model)
-    unwrapped_model.save_pretrained(output_dir, save_function = accelerator.save)
+    save_model_contiguous(unwrapped_model, output_dir)
     if accelerator.is_main_process:
         tokenizer.save_pretrained(output_dir)
         repo.push_to_hub(
