@@ -1,4 +1,5 @@
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, DataCollatorForSeq2Seq, get_scheduler, AutoConfig
+from transformers import AutoTokenizer, T5ForConditionalGeneration, T5Config, get_scheduler
+from transformers.modeling_outputs import Seq2SeqLMOutput
 from datasets import load_dataset, load_from_disk
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
@@ -13,46 +14,24 @@ import nltk
 
 rouge_score = evaluate.load('rouge')
 
-cnn_dailymail = load_dataset('abisee/cnn_dailymail', '3.0.0')
-
-model_checkpoint = "google-t5/t5-base"
+model_checkpoint = "google/t5-v1_1-small"
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
-
-max_input_length = 2048
-max_label_length = 30
-
-# def preprocess(dataset):
-#     model_inputs = tokenizer(
-#         dataset['article'],
-#         max_length = max_input_length,
-#         truncation = True,
-#         padding = 'max_length'
-#     )
-
-#     labels = tokenizer(
-#         dataset['highlights'],
-#         max_length = max_label_length,
-#         truncation = True,
-#         padding = 'max_length'
-#     )
-
-#     model_inputs['labels'] = labels['input_ids']
-#     return model_inputs
-
-# tokenized_datasets = cnn_dailymail.map(preprocess, batched = True, remove_columns=cnn_dailymail['train'].column_names)
-
-# tokenized_datasets.set_format("torch")
-
-# tokenized_datasets.save_to_disk('tokens')
 
 tokenized_datasets = load_from_disk('tokens')
 
-class CustomSeq2SeqModel(AutoModelForSeq2SeqLM):
+class CustomSeq2SeqModel(T5ForConditionalGeneration):
     def __init__(self, config):
         super().__init__(config)
         self.evaluater = main.Evaluater()
 
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        model = super(CustomSeq2SeqModel, cls).from_pretrained(*args, **kwargs)
+        model.evaluater = main.Evaluater()
+        return model
+
     def compute_lsa_loss(self, summaries, references):
+        print('loss called')
         scores = {'main topic': 0, 'term sig': 0}
         num_samples = len(summaries)
 
@@ -66,29 +45,40 @@ class CustomSeq2SeqModel(AutoModelForSeq2SeqLM):
 
         lsa_loss = 1 - (scores['main topic'] + scores['term sig']) / 2
 
-        return torch.tensor(lsa_loss, dtype=torch.float32)
+        print('loss computed')
+        return torch.tensor(lsa_loss, dtype = torch.float32, requires_grad = True)
     
     def forward(self, input_ids = None, attention_mask = None, labels = None):
-        outputs = super().forward(input_ids = input_ids, attention_mask = attention_mask, labels = labels)
+        print("forward called!")
+        outputs = super().forward(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+        print('gets here')
         logits = outputs.logits
 
         predictions = torch.argmax(logits, dim = -1)
-        print(predictions)
+        print('predictions made:', predictions)
+        
         summaries = tokenizer.batch_decode(predictions, skip_special_tokens = True)
         references = tokenizer.batch_decode(labels, skip_special_tokens = True)
 
         lsa_loss = self.compute_lsa_loss(summaries, references)
 
-        outputs.loss = lsa_loss
-        return outputs
-
+        return Seq2SeqLMOutput(
+            loss=lsa_loss,
+            logits=logits,
+            past_key_values=outputs.past_key_values,
+            decoder_hidden_states=outputs.decoder_hidden_states,
+            decoder_attentions=outputs.decoder_attentions,
+            cross_attentions=outputs.cross_attentions,
+            encoder_last_hidden_state=outputs.encoder_last_hidden_state,
+            encoder_hidden_states=outputs.encoder_hidden_states,
+            encoder_attentions=outputs.encoder_attentions,
+        )
+    
 model = CustomSeq2SeqModel.from_pretrained(model_checkpoint)
 
-batch_size = 4
+batch_size = 2
 
-# data_collator = DataCollatorForSeq2Seq(tokenizer, model=model, padding=True)
-
-def custom_collate_fn(features):
+def collate_fn(features):
     batch = {}
     for key in features[0].keys():
         if isinstance(features[0][key], torch.Tensor):
@@ -102,13 +92,13 @@ def custom_collate_fn(features):
 train_dataloader = DataLoader(
     tokenized_datasets["test"],
     shuffle = True,
-    collate_fn = custom_collate_fn,
+    collate_fn = collate_fn,
     batch_size = batch_size
 )
 
 eval_dataloader = DataLoader(
     tokenized_datasets["validation"],
-    collate_fn = custom_collate_fn,
+    collate_fn = collate_fn,
     batch_size = batch_size
 )
 
@@ -119,7 +109,7 @@ model, optimizer, train_dataloader, eval_dataloader = accelerator.prepare(
     model, optimizer, train_dataloader, eval_dataloader
 )
 
-num_train_epochs = 12
+num_train_epochs = 10
 num_update_steps_per_epoch = len(train_dataloader)
 num_training_steps = num_train_epochs * num_update_steps_per_epoch
 
@@ -140,12 +130,10 @@ def postprocess_text(preds, labels):
     preds = [pred.strip() for pred in preds]
     labels = [label.strip() for label in labels]
 
-    # ROUGE expects a newline after each sentence
     preds = ["\n".join(nltk.sent_tokenize(pred)) for pred in preds]
     labels = ["\n".join(nltk.sent_tokenize(label)) for label in labels]
 
     return preds, labels
-
 
 for epoch in range(num_train_epochs):
     model.train()
@@ -160,7 +148,7 @@ for epoch in range(num_train_epochs):
         print("2")
         accelerator.backward(loss)
         print("3")
-        # TODO: ISSUE IN LOSS FUNCTION
+
         optimizer.step()
         lr_scheduler.step()
         optimizer.zero_grad()
@@ -204,19 +192,12 @@ for epoch in range(num_train_epochs):
                 decoded_preds, decoded_labels
             )
 
-            # add batch of results to be computed
             rouge_score.add_batch(predictions = decoded_preds, references = decoded_labels)
 
-
-    # compute results
     result = rouge_score.compute()
     result = {key: value.mid.fmeasure * 100 for key, value in result.items()}
     result = {k: round(v, 4) for k, v in result.items()}
     print(f"Epoch {epoch}:", result)
-
-    # extract the median results
-
-    # print epoch and result
 
     accelerator.wait_for_everyone()
     unwrapped_model = accelerator.unwrap_model(model)
