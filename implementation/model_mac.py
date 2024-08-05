@@ -11,7 +11,7 @@ from tqdm.auto import tqdm
 import main
 import evaluate
 import nltk
-from torch.cuda.amp import autocast
+from torch.amp import autocast
 
 # Load ROUGE metric
 rouge_score = evaluate.load('rouge')
@@ -65,7 +65,7 @@ model = CustomSeq2SeqModel.from_pretrained(model_checkpoint)
 batch_size = 2  # Increased batch size
 gradient_accumulation_steps = 2  # Added gradient accumulation
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
 
 def collate_fn(features):
     return {k: torch.stack([f[k].clone().detach() for f in features]) for k in features[0].keys()}
@@ -85,7 +85,7 @@ eval_dataloader = DataLoader(
 
 optimizer = AdamW(model.parameters(), lr=2e-5)
 
-accelerator = Accelerator(mixed_precision='fp16' if torch.cuda.is_available() else 'no')
+accelerator = Accelerator(mixed_precision='fp16' if torch.backends.mps.is_available() else 'no')
 model, optimizer, train_dataloader, eval_dataloader = accelerator.prepare(
     model, optimizer, train_dataloader, eval_dataloader
 )
@@ -117,7 +117,7 @@ for epoch in range(num_train_epochs):
     total_loss = 0
 
     for step, batch in enumerate(train_dataloader):
-        with autocast(device.type):
+        with autocast(device_type=device.type):
             outputs = model(**batch)
             loss = outputs.loss / gradient_accumulation_steps
         
